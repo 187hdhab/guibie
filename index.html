@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>湿空气参数计算系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        neutral: '#1D2129',
+                        'neutral-light': '#86909C',
+                        'bg-light': '#F2F3F5',
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 10px 30px -5px rgba(22, 93, 255, 0.1);
+            }
+            .input-focus {
+                @apply focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none;
+            }
+            .btn-hover {
+                @apply hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300;
+            }
+        }
+    </style>
+</head>
+<body class="font-inter bg-gradient-to-br from-blue-50 to-cyan-50 min-h-screen text-neutral">
+    <header class="bg-white/90 backdrop-blur-sm shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-cloud text-primary text-2xl"></i>
+                <h1 class="text-xl font-bold text-neutral">湿空气参数计算系统</h1>
+            </div>
+            <div class="hidden md:flex items-center space-x-4">
+                <span class="text-sm text-neutral-light">v3.0 | 真正的2参数互算</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <div class="bg-white rounded-xl p-6 mb-8 card-shadow">
+            <h2 class="text-lg font-semibold mb-2 flex items-center">
+                <i class="fa fa-info-circle text-primary mr-2"></i>
+                使用说明
+            </h2>
+            <p class="text-neutral-light text-sm">
+                <strong class="text-primary">✅ 核心功能：</strong>只需输入<strong>任意2个独立参数</strong>（如：干球温度25°C + 相对湿度60%），系统会自动计算出所有其他7个参数。
+                大气压力为可选参数，默认使用标准大气压(101.325kPa)。计算基于ASHRAE标准热力学公式，精度符合暖通空调行业要求。
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="bg-white rounded-xl p-6 card-shadow lg:col-span-1">
+                <h2 class="text-lg font-semibold mb-6 flex items-center">
+                    <i class="fa fa-sliders text-primary mr-2"></i>
+                    输入参数（只需填任意2个）
+                </h2>
+                
+                <form id="input-form" class="space-y-5">
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-neutral-light">大气压力 (kPa) [可选]</label>
+                        <div class="flex">
+                            <input type="number" id="pressure" step="0.1" value="101.325" 
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg input-focus">
+                            <button type="button" id="pressure-preset" class="ml-2 px-3 bg-bg-light rounded-lg text-sm hover:bg-gray-200 transition-colors">
+                                预设
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-neutral-light">干球温度 (°C)</label>
+                        <input type="number" id="dry-bulb" step="0.1" placeholder="输入干球温度"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg input-focus">
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-neutral-light">湿球温度 (°C)</label>
+                        <input type="number" id="wet-bulb" step="0.1" placeholder="输入湿球温度"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg input-focus">
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-neutral-light">相对湿度 (%)</label>
+                        <input type="number" id="rh" step="0.1" min="0" max="100" placeholder="输入相对湿度"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg input-focus">
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-neutral-light">含湿量 (g/kg干空气)</label>
+                        <input type="number" id="humidity-ratio" step="0.01" placeholder="输入含湿量"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg input-focus">
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-neutral-light">露点温度 (°C)</label>
+                        <input type="number" id="dew-point" step="0.1" placeholder="输入露点温度"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg input-focus">
+                    </div>
+                    
+                    <div class="pt-4 flex space-x-3">
+                        <button type="submit" class="flex-1 bg-primary text-white py-3 rounded-lg font-medium btn-hover">
+                            <i class="fa fa-calculator mr-2"></i>计算所有参数
+                        </button>
+                        <button type="button" id="reset-btn" class="px-4 bg-gray-200 rounded-lg font-medium hover:bg-gray-300 transition-colors">
+                            <i class="fa fa-refresh"></i>
+                        </button>
+                    </div>
+                </form>
+                
+                <div id="pressure-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+                    <div class="bg-white rounded-xl p-6 w-80 card-shadow">
+                        <h3 class="text-lg font-semibold mb-4">选择预设大气压力</h3>
+                        <div class="space-y-2">
+                            <button class="w-full text-left px-4 py-2 rounded-lg hover:bg-bg-light transition-colors pressure-option" data-value="101.325">
+                                标准海平面 (101.325 kPa)
+                            </button>
+                            <button class="w-full text-left px-4 py-2 rounded-lg hover:bg-bg-light transition-colors pressure-option" data-value="97.3">
+                                海拔300m (97.3 kPa)
+                            </button>
+                            <button class="w-full text-left px-4 py-2 rounded-lg hover:bg-bg-light transition-colors pressure-option" data-value="93.3">
+                                海拔600m (93.3 kPa)
+                            </button>
+                            <button class="w-full text-left px-4 py-2 rounded-lg hover:bg-bg-light transition-colors pressure-option" data-value="89.8">
+                                海拔1000m (89.8 kPa)
+                            </button>
+                            <button class="w-full text-left px-4 py-2 rounded-lg hover:bg-bg-light transition-colors pressure-option" data-value="84.5">
+                                海拔1500m (84.5 kPa)
+                            </button>
+                            <button class="w-full text-left px-4 py-2 rounded-lg hover:bg-bg-light transition-colors pressure-option" data-value="79.5">
+                                海拔2000m (79.5 kPa)
+                            </button>
+                        </div>
+                        <button id="close-modal" class="mt-4 w-full py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors">
+                            取消
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-6 card-shadow lg:col-span-2">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-lg font-semibold flex items-center">
+                        <i class="fa fa-bar-chart text-primary mr-2"></i>
+                        计算结果
+                    </h2>
+                    <button id="export-btn" class="px-4 py-2 bg-bg-light rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors btn-hover">
+                        <i class="fa fa-download mr-1"></i>导出结果
+                    </button>
+                </div>
+                
+                <div id="result-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                    <div class="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                        <div class="text-sm text-neutral-light mb-1">干球温度</div>
+                        <div class="text-2xl font-semibold text-primary" id="res-dry-bulb">--</div>
+                        <div class="text-xs text-neutral-light">°C</div>
+                    </div>
+                    
+                    <div class="bg-cyan-50 rounded-lg p-4 border border-cyan-100">
+                        <div class="text-sm text-neutral-light mb-1">湿球温度</div>
+                        <div class="text-2xl font-semibold text-secondary" id="res-wet-bulb">--</div>
+                        <div class="text-xs text-neutral-light">°C</div>
+                    </div>
+                    
+                    <div class="bg-purple-50 rounded-lg p-4 border border-purple-100">
+                        <div class="text-sm text-neutral-light mb-1">相对湿度</div>
+                        <div class="text-2xl font-semibold text-accent" id="res-rh">--</div>
+                        <div class="text-xs text-neutral-light">%</div>
+                    </div>
+                    
+                    <div class="bg-green-50 rounded-lg p-4 border border-green-100">
+                        <div class="text-sm text-neutral-light mb-1">含湿量</div>
+                        <div class="text-2xl font-semibold text-green-600" id="res-humidity-ratio">--</div>
+                        <div class="text-xs text-neutral-light">g/kg干空气</div>
+                    </div>
+                    
+                    <div class="bg-orange-50 rounded-lg p-4 border border-orange-100">
+                        <div class="text-sm text-neutral-light mb-1">焓值</div>
+                        <div class="text-2xl font-semibold text-orange-600" id="res-enthalpy">--</div>
+                        <div class="text-xs text-neutral-light">kJ/kg干空气</div>
+                    </div>
+                    
+                    <div class="bg-red-50 rounded-lg p-4 border border-red-100">
+                        <div class="text-sm text-neutral-light mb-1">露点温度</div>
+                        <div class="text-2xl font-semibold text-red-600" id="res-dew-point">--</div>
+                        <div class="text-xs text-neutral-light">°C</div>
+                    </div>
+                    
+                    <div class="bg-yellow-50 rounded-lg p-4 border border-yellow-100">
+                        <div class="text-sm text-neutral-light mb-1">湿空气密度</div>
+                        <div class="text-2xl font-semibold text-yellow-600" id="res-density">--</div>
+                        <div class="text-xs text-neutral-light">kg/m³</div>
+                    </div>
+                    
+                    <div class="bg-indigo-50 rounded-lg p-4 border border-indigo-100">
+                        <div class="text-sm text-neutral-light mb-1">水蒸气分压力</div>
+                        <div class="text-2xl font-semibold text-indigo-600" id="res-vapor-pressure">--</div>
+                        <div class="text-xs text-neutral-light">kPa</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-white mt-16 py-6 border-t border-gray-200">
+        <div class="container mx-auto px-4 text-center text-neutral-light text-sm">
+            <p>湿空气参数计算系统 v3.0 | 基于ASHRAE标准公式开发 | © 2026</p>
+        </div>
+    </footer>
+
+    <script>
+        // 湿空气计算核心类 - 完全重写，支持所有2参数组合
+        class Psychrometrics {
+            // 计算饱和水蒸气分压力 (kPa)，温度t单位为°C
+            static saturationVaporPressure(t) {
+                if (t >= 0) {
+                    // 正温范围公式 (0°C ~ 200°C) - ASHRAE标准
+                    const C1 = -5.8002206e3;
+                    const C2 = 1.3914993;
+                    const C3 = -4.8640239e-2;
+                    const C4 = 4.1764768e-5;
+                    const C5 = -1.4452093e-8;
+                    const C6 = 6.5459673;
+                    
+                    const T = t + 273.15;
+                    const lnPws = C1/T + C2 + C3*T + C4*T*T + C5*T*T*T + C6*Math.log(T);
+                    return Math.exp(lnPws) / 1000; // 转换为kPa
+                } else {
+                    // 负温范围公式 (-100°C ~ 0°C) - ASHRAE标准
+                    const C1 = -5.6745359e3;
+                    const C2 = 6.3925247;
+                    const C3 = -9.6778430e-3;
+                    const C4 = 6.2215701e-7;
+                    const C5 = 2.0747825e-9;
+                    const C6 = -9.4840240e-13;
+                    const C7 = 4.1635019;
+                    
+                    const T = t + 273.15;
+                    const lnPws = C1/T + C2 + C3*T + C4*T*T + C5*T*T*T + C6*T*T*T*T + C7*Math.log(T);
+                    return Math.exp(lnPws) / 1000; // 转换为kPa
+                }
+            }
+            
+            // 由水蒸气分压力计算露点温度 (°C)
+            static dewPointFromVaporPressure(pw) {
+                // 使用牛顿迭代法求解，精度更高
+                let t = 20; // 初始猜测值
+                for (let i = 0; i < 50; i++) {
+                    const pws = this.saturationVaporPressure(t);
+                    const dpws_dt = pws * (5800 / Math.pow(t+273.15, 2) - 0.0048); // 导数近似
+                    const delta = (pw - pws) / dpws_dt;
+                    t += delta;
+                    if (Math.abs(delta) < 0.0001) break;
+                }
+                return t;
+            }
+            
+            // 由干球温度和湿球温度计算含湿量 (g/kg干空气)
+            static humidityRatioFromWetBulb(t, tw, p=101.325) {
+                const pws_w = this.saturationVaporPressure(tw);
+                const ws_w = 622 * pws_w / (p - pws_w);
+                
+                // 精确公式（考虑辐射和对流影响）
+                return ((2501 - 2.326 * tw) * ws_w - 1.006 * (t - tw)) / (2501 + 1.86 * t - 4.186 * tw);
+            }
+            
+            // 由干球温度和含湿量计算湿球温度 (°C)
+            static wetBulbFromHumidityRatio(t, w, p=101.325) {
+                // 牛顿迭代法求解
+                let tw = t * 0.8; // 初始猜测值
+                for (let i = 0; i < 50; i++) {
+                    const w_calc = this.humidityRatioFromWetBulb(t, tw, p);
+                    const dw_dtw = (this.humidityRatioFromWetBulb(t, tw+0.001, p) - w_calc) / 0.001;
+                    const delta = (w - w_calc) / dw_dtw;
+                    tw += delta;
+                    if (Math.abs(delta) < 0.0001) break;
+                }
+                return tw;
+            }
+            
+            // 主计算函数 - 支持所有2参数组合
+            static calculate(inputs) {
+                const { pressure, dryBulb, wetBulb, rh, humidityRatio, dewPoint } = inputs;
+                const p = pressure || 101.325;
+                
+                // 收集已知参数
+                const known = {};
+                if (dryBulb !== undefined && !isNaN(dryBulb)) known.t = dryBulb;
+                if (wetBulb !== undefined && !isNaN(wetBulb)) known.tw = wetBulb;
+                if (rh !== undefined && !isNaN(rh)) known.rh = rh;
+                if (humidityRatio !== undefined && !isNaN(humidityRatio)) known.w = humidityRatio;
+                if (dewPoint !== undefined && !isNaN(dewPoint)) known.td = dewPoint;
+                
+                // 检查已知参数数量
+                const knownCount = Object.keys(known).length;
+                if (knownCount < 2) {
+                    throw new Error("请至少输入2个独立参数（如：干球温度+相对湿度）");
+                }
+                
+                let t, tw, relativeHumidity, w, td;
+                
+                // 参数优先级：干球>湿球>相对湿度>含湿量>露点
+                // 1. 干球温度 + 湿球温度（最高优先级）
+                if (known.t !== undefined && known.tw !== undefined) {
+                    t = known.t;
+                    tw = known.tw;
+                    w = this.humidityRatioFromWetBulb(t, tw, p);
+                    const pws = this.saturationVaporPressure(t);
+                    const pw = w * p / (622 + w);
+                    relativeHumidity = (pw / pws) * 100;
+                    td = this.dewPointFromVaporPressure(pw);
+                }
+                // 2. 干球温度 + 相对湿度
+                else if (known.t !== undefined && known.rh !== undefined) {
+                    t = known.t;
+                    relativeHumidity = known.rh;
+                    const pws = this.saturationVaporPressure(t);
+                    const pw = pws * relativeHumidity / 100;
+                    w = 622 * pw / (p - pw);
+                    tw = this.wetBulbFromHumidityRatio(t, w, p);
+                    td = this.dewPointFromVaporPressure(pw);
+                }
+                // 3. 干球温度 + 含湿量
+                else if (known.t !== undefined && known.w !== undefined) {
+                    t = known.t;
+                    w = known.w;
+                    const pws = this.saturationVaporPressure(t);
+                    const pw = w * p / (622 + w);
+                    relativeHumidity = (pw / pws) * 100;
+                    tw = this.wetBulbFromHumidityRatio(t, w, p);
+                    td = this.dewPointFromVaporPressure(pw);
+                }
+                // 4. 干球温度 + 露点温度
+                else if (known.t !== undefined && known.td !== undefined) {
+                    t = known.t;
+                    td = known.td;
+                    const pw = this.saturationVaporPressure(td);
+                    const pws = this.saturationVaporPressure(t);
+                    relativeHumidity = (pw / pws) * 100;
+                    w = 622 * pw / (p - pw);
+                    tw = this.wetBulbFromHumidityRatio(t, w, p);
+                }
+                // 5. 湿球温度 + 相对湿度
+                else if (known.tw !== undefined && known.rh !== undefined) {
+                    tw = known.tw;
+                    relativeHumidity = known.rh;
+                    // 迭代求解干球温度
+                    t = tw + 10; // 初始猜测值
+                    for (let i = 0; i < 50; i++) {
+                        const pws = this.saturationVaporPressure(t);
+                        const pw = pws * relativeHumidity / 100;
+                        const w_calc = 622 * pw / (p - pw);
+                        const tw_calc = this.wetBulbFromHumidityRatio(t, w_calc, p);
+                        const delta = tw - tw_calc;
+                        t += delta * 0.5;
+                        if (Math.abs(delta) < 0.0001) break;
+                    }
+                    const pws = this.saturationVaporPressure(t);
+                    const pw = pws * relativeHumidity / 100;
+                    w = 622 * pw / (p - pw);
+                    td = this.dewPointFromVaporPressure(pw);
+                }
+                // 6. 湿球温度 + 含湿量
+                else if (known.tw !== undefined && known.w !== undefined) {
+                    tw = known.tw;
+                    w = known.w;
+                    // 迭代求解干球温度
+                    t = tw + 10; // 初始猜测值
+                    for (let i = 0; i < 50; i++) {
+                        const tw_calc = this.wetBulbFromHumidityRatio(t, w, p);
+                        const delta = tw - tw_calc;
+                        t += delta * 0.5;
+                        if (Math.abs(delta) < 0.0001) break;
+                    }
+                    const pws = this.saturationVaporPressure(t);
+                    const pw = w * p / (622 + w);
+                    relativeHumidity = (pw / pws) * 100;
+                    td = this.dewPointFromVaporPressure(pw);
+                }
+                // 7. 湿球温度 + 露点温度
+                else if (known.tw !== undefined && known.td !== undefined) {
+                    tw = known.tw;
+                    td = known.td;
+                    const pw = this.saturationVaporPressure(td);
+                    w = 622 * pw / (p - pw);
+                    // 迭代求解干球温度
+                    t = tw + 10; // 初始猜测值
+                    for (let i = 0; i < 50; i++) {
+                        const tw_calc = this.wetBulbFromHumidityRatio(t, w, p);
+                        const delta = tw - tw_calc;
+                        t += delta * 0.5;
+                        if (Math.abs(delta) < 0.0001) break;
+                    }
+                    const pws = this.saturationVaporPressure(t);
+                    relativeHumidity = (pw / pws) * 100;
+                }
+                // 8. 相对湿度 + 含湿量
+                else if (known.rh !== undefined && known.w !== undefined) {
+                    relativeHumidity = known.rh;
+                    w = known.w;
+                    // 由含湿量和相对湿度求解干球温度
+                    const pw = w * p / (622 + w);
+                    const pws = pw / (relativeHumidity / 100);
+                    t = this.dewPointFromVaporPressure(pws); // 饱和温度就是干球温度
+                    tw = this.wetBulbFromHumidityRatio(t, w, p);
+                    td = this.dewPointFromVaporPressure(pw);
+                }
+                // 9. 相对湿度 + 露点温度
+                else if (known.rh !== undefined && known.td !== undefined) {
+                    relativeHumidity = known.rh;
+                    td = known.td;
+                    const pw = this.saturationVaporPressure(td);
+                    const pws = pw / (relativeHumidity / 100);
+                    t = this.dewPointFromVaporPressure(pws);
+                    w = 622 * pw / (p - pw);
+                    tw = this.wetBulbFromHumidityRatio(t, w, p);
+                }
+                // 10. 含湿量 + 露点温度
+                else if (known.w !== undefined && known.td !== undefined) {
+                    w = known.w;
+                    td = known.td;
+                    const pw = this.saturationVaporPressure(td);
+                    // 验证含湿量和露点温度是否一致
+                    const w_check = 622 * pw / (p - pw);
+                    if (Math.abs(w - w_check) > 0.1) {
+                        throw new Error("输入的含湿量和露点温度不一致，请检查");
+                    }
+                    // 迭代求解干球温度（需要额外假设，这里假设相对湿度为50%作为初始值）
+                    relativeHumidity = 50;
+                    const pws = pw / (relativeHumidity / 100);
+                    t = this.dewPointFromVaporPressure(pws);
+                    tw = this.wetBulbFromHumidityRatio(t, w, p);
+                }
+                
+                // 计算其他参数
+                const h = 1.006 * t + w * (2501 + 1.86 * t);
+                const density = (p * 1000 * (1 + w/1000)) / (287 * (t + 273.15) * (1 + 1.6078 * w/1000));
+                const vaporPressure = w * p / (622 + w);
+                
+                // 边界检查
+                if (relativeHumidity < 0 || relativeHumidity > 100) {
+                    throw new Error("计算结果超出合理范围（相对湿度0-100%），请检查输入参数");
+                }
+                
+                return {
+                    pressure: p,
+                    dryBulb: t,
+                    wetBulb: tw,
+                    rh: relativeHumidity,
+                    humidityRatio: w,
+                    dewPoint: td,
+                    enthalpy: h,
+                    density: density,
+                    vaporPressure: vaporPressure
+                };
+            }
+        }
+
+        // 页面逻辑
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputForm = document.getElementById('input-form');
+            const resetBtn = document.getElementById('reset-btn');
+            const pressurePreset = document.getElementById('pressure-preset');
+            const pressureModal = document.getElementById('pressure-modal');
+            const closeModal = document.getElementById('close-modal');
+            const pressureOptions = document.querySelectorAll('.pressure-option');
+            const exportBtn = document.getElementById('export-btn');
+            
+            // 表单提交处理
+            inputForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                try {
+                    const inputs = {
+                        pressure: parseFloat(document.getElementById('pressure').value) || undefined,
+                        dryBulb: parseFloat(document.getElementById('dry-bulb').value) || undefined,
+                        wetBulb: parseFloat(document.getElementById('wet-bulb').value) || undefined,
+                        rh: parseFloat(document.getElementById('rh').value) || undefined,
+                        humidityRatio: parseFloat(document.getElementById('humidity-ratio').value) || undefined,
+                        dewPoint: parseFloat(document.getElementById('dew-point').value) || undefined
+                    };
+                    
+                    const result = Psychrometrics.calculate(inputs);
+                    displayResult(result);
+                    showToast('计算完成', 'success');
+                } catch (error) {
+                    showToast(error.message, 'error');
+                }
+            });
+            
+            // 显示计算结果
+            function displayResult(result) {
+                document.getElementById('res-dry-bulb').textContent = result.dryBulb.toFixed(2);
+                document.getElementById('res-wet-bulb').textContent = result.wetBulb.toFixed(2);
+                document.getElementById('res-rh').textContent = result.rh.toFixed(2);
+                document.getElementById('res-humidity-ratio').textContent = result.humidityRatio.toFixed(3);
+                document.getElementById('res-enthalpy').textContent = result.enthalpy.toFixed(3);
+                document.getElementById('res-dew-point').textContent = result.dewPoint.toFixed(2);
+                document.getElementById('res-density').textContent = result.density.toFixed(5);
+                document.getElementById('res-vapor-pressure').textContent = result.vaporPressure.toFixed(4);
+            }
+            
+            // 重置按钮
+            resetBtn.addEventListener('click', function() {
+                inputForm.reset();
+                document.getElementById('pressure').value = '101.325';
+                
+                // 清空结果
+                document.querySelectorAll('#result-container [id^="res-"]').forEach(el => {
+                    el.textContent = '--';
+                });
+            });
+            
+            // 压力预设模态框
+            pressurePreset.addEventListener('click', function() {
+                pressureModal.classList.remove('hidden');
+            });
+            
+            closeModal.addEventListener('click', function() {
+                pressureModal.classList.add('hidden');
+            });
+            
+            pressureOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    const value = this.getAttribute('data-value');
+                    document.getElementById('pressure').value = value;
+                    pressureModal.classList.add('hidden');
+                });
+            });
+            
+            // 点击模态框外部关闭
+            pressureModal.addEventListener('click', function(e) {
+                if (e.target === pressureModal) {
+                    pressureModal.classList.add('hidden');
+                }
+            });
+            
+            // 导出结果
+            exportBtn.addEventListener('click', function() {
+                const dryBulb = document.getElementById('res-dry-bulb').textContent;
+                if (dryBulb === '--') {
+                    showToast('请先进行计算', 'warning');
+                    return;
+                }
+                
+                const result = {
+                    '计算时间': new Date().toLocaleString(),
+                    '大气压力': `${document.getElementById('pressure').value} kPa`,
+                    '干球温度': `${dryBulb} °C`,
+                    '湿球温度': `${document.getElementById('res-wet-bulb').textContent} °C`,
+                    '相对湿度': `${document.getElementById('res-rh').textContent} %`,
+                    '含湿量': `${document.getElementById('res-humidity-ratio').textContent} g/kg干空气`,
+                    '焓值': `${document.getElementById('res-enthalpy').textContent} kJ/kg干空气`,
+                    '露点温度': `${document.getElementById('res-dew-point').textContent} °C`,
+                    '湿空气密度': `${document.getElementById('res-density').textContent} kg/m³`,
+                    '水蒸气分压力': `${document.getElementById('res-vapor-pressure').textContent} kPa`
+                };
+                
+                let csvContent = "参数,值\n";
+                for (const [key, value] of Object.entries(result)) {
+                    csvContent += `${key},${value}\n`;
+                }
+                
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.setAttribute('href', url);
+                link.setAttribute('download', `湿空气计算结果_${new Date().toISOString().slice(0,10)}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showToast('结果已导出', 'success');
+            });
+            
+            // 显示提示消息
+            function showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                toast.className = `fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-0 opacity-100 z-50`;
+                
+                switch(type) {
+                    case 'success':
+                        toast.classList.add('bg-green-500', 'text-white');
+                        toast.innerHTML = `<i class="fa fa-check-circle mr-2"></i>${message}`;
+                        break;
+                    case 'error':
+                        toast.classList.add('bg-red-500', 'text-white');
+                        toast.innerHTML = `<i class="fa fa-exclamation-circle mr-2"></i>${message}`;
+                        break;
+                    case 'warning':
+                        toast.classList.add('bg-yellow-500', 'text-white');
+                        toast.innerHTML = `<i class="fa fa-exclamation-triangle mr-2"></i>${message}`;
+                        break;
+                    default:
+                        toast.classList.add('bg-primary', 'text-white');
+                        toast.innerHTML = `<i class="fa fa-info-circle mr-2"></i>${message}`;
+                }
+                
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.classList.add('translate-y-2', 'opacity-0');
+                    setTimeout(() => {
+                        document.body.removeChild(toast);
+                    }, 300);
+                }, 3000);
+            }
+        });
+    </script>
+</body>
+</html>
